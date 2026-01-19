@@ -2,7 +2,10 @@ package me.kkywalk2.webdav.handlers
 
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.response.*
+import me.kkywalk2.auth.AuthorizationService
+import me.kkywalk2.auth.Permission
 import me.kkywalk2.config.ServerConfig
 import me.kkywalk2.path.PathResolver
 import me.kkywalk2.storage.FileSystemStorage
@@ -22,6 +25,14 @@ class PropfindHandler(
     private val pathResolver = PathResolver(config.serverRoot)
 
     suspend fun handle(call: ApplicationCall, urlPath: String) {
+        // Get authenticated user
+        val principal = call.principal<UserIdPrincipal>()
+        if (principal == null) {
+            call.respond(HttpStatusCode.Unauthorized)
+            return
+        }
+        val username = principal.name
+
         // Get Depth header (default to infinity, but we'll limit it)
         val depth = when (call.request.headers["Depth"]) {
             "0" -> 0
@@ -44,6 +55,12 @@ class PropfindHandler(
                 return
             }
 
+            // Check LIST permission
+            if (!AuthorizationService.hasPermission(username, urlPath, Permission.LIST)) {
+                call.respond(HttpStatusCode.Forbidden, "No LIST permission")
+                return
+            }
+
             // Build resource list
             val resources = mutableListOf<WebDavResource>()
 
@@ -54,14 +71,18 @@ class PropfindHandler(
                 resources.add(WebDavResource.from(urlPath, displayName, metadata))
             }
 
-            // If depth is 1 and it's a directory, add children
+            // If depth is 1 and it's a directory, add children (filter by LIST permission)
             if (depth == 1 && storage.isDirectory(fsPath)) {
                 val children = storage.listDirectory(fsPath)
                 for (childPath in children) {
                     val childMetadata = storage.getMetadata(childPath)
                     if (childMetadata != null) {
                         val childUrlPath = pathResolver.toUrlPath(childPath)
-                        resources.add(WebDavResource.from(childUrlPath, childPath.name, childMetadata))
+
+                        // Only include if user has LIST permission for this child
+                        if (AuthorizationService.hasPermission(username, childUrlPath, Permission.LIST)) {
+                            resources.add(WebDavResource.from(childUrlPath, childPath.name, childMetadata))
+                        }
                     }
                 }
             }

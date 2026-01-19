@@ -2,9 +2,12 @@ package me.kkywalk2.webdav.handlers
 
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.utils.io.*
+import me.kkywalk2.auth.AuthorizationService
+import me.kkywalk2.auth.Permission
 import me.kkywalk2.config.ServerConfig
 import me.kkywalk2.path.PathResolver
 import me.kkywalk2.storage.FileSystemStorage
@@ -22,6 +25,20 @@ class PutHandler(
     private val pathResolver = PathResolver(config.serverRoot)
 
     suspend fun handle(call: ApplicationCall, urlPath: String) {
+        // Get authenticated user
+        val principal = call.principal<UserIdPrincipal>()
+        if (principal == null) {
+            call.respond(HttpStatusCode.Unauthorized)
+            return
+        }
+        val username = principal.name
+
+        // Check WRITE permission
+        if (!AuthorizationService.hasPermission(username, urlPath, Permission.WRITE)) {
+            call.respond(HttpStatusCode.Forbidden, "No WRITE permission")
+            return
+        }
+
         try {
             // Resolve path
             val fsPath = pathResolver.resolve(urlPath)

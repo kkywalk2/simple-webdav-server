@@ -2,6 +2,7 @@ package me.kkywalk2.routes
 
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import me.kkywalk2.config.ServerConfig
@@ -24,14 +25,15 @@ fun Application.configureRouting(config: ServerConfig) {
             call.respondText("WebDAV Server is running", ContentType.Text.Plain)
         }
 
-        // WebDAV endpoints
-        route("/webdav") {
-            // Catch all paths under /webdav
-            route("{path...}") {
-                // OPTIONS - discover server capabilities
-                options {
-                    OptionsHandler.handle(call)
-                }
+        // WebDAV endpoints (with authentication)
+        authenticate("webdav-auth") {
+            route("/webdav") {
+                // Catch all paths under /webdav
+                route("{path...}") {
+                    // OPTIONS - discover server capabilities
+                    options {
+                        OptionsHandler.handle(call)
+                    }
 
                 // PROPFIND - list directory contents
                 handle {
@@ -79,17 +81,18 @@ fun Application.configureRouting(config: ServerConfig) {
                     }
                 }
             }
-        }
 
-        // Root WebDAV OPTIONS
-        options("/webdav") {
-            OptionsHandler.handle(call)
-        }
+                // Root WebDAV OPTIONS
+                options("/webdav") {
+                    OptionsHandler.handle(call)
+                }
 
-        // Root WebDAV PROPFIND
-        handle {
-            if (call.request.local.method.value == "PROPFIND" && call.request.local.uri == "/webdav") {
-                propfindHandler.handle(call, "/")
+                // Root WebDAV PROPFIND
+                handle {
+                    if (call.request.local.method.value == "PROPFIND" && call.request.local.uri == "/webdav") {
+                        propfindHandler.handle(call, "/")
+                    }
+                }
             }
         }
     }

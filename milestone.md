@@ -5,7 +5,7 @@
 
 ---
 
-## 전체 진행률: 4/8 마일스톤 완료 (50%)
+## 전체 진행률: 5/8 마일스톤 완료 (62.5%)
 
 ---
 
@@ -198,15 +198,53 @@ src/main/kotlin/webdav/handlers/
 
 ---
 
-## ⏳ 마일스톤 5: 인증 및 권한 - 대기 중
+## ✅ 마일스톤 5: 인증 및 권한 - 완료
+
+**완료일**: 2026-01-19
 
 **목표**: Basic Auth와 권한 관리 시스템 구현
 
-### 계획된 작업
-- [ ] HTTP Basic Authentication
-- [ ] SQLite 기반 사용자/권한 관리
-- [ ] Authorization Layer (LIST, READ, WRITE, DELETE, MKCOL)
-- [ ] 권한 없는 리소스 숨김 처리
+### 구현된 기능
+- [x] HTTP Basic Authentication (Ktor Auth 플러그인)
+  - 401 Unauthorized + WWW-Authenticate 헤더
+  - Realm: "WebDAV Server"
+- [x] SQLite 기반 사용자/권한 관리
+  - Users 테이블 (username, password, displayName, enabled)
+  - PermissionRules 테이블 (path별 권한: LIST, READ, WRITE, DELETE, MKCOL, deny)
+  - 기본 admin 사용자 자동 생성 (admin/admin)
+- [x] Authorization Layer
+  - 더 구체적인 경로 우선
+  - deny 플래그 우선 적용
+  - 기본 정책: deny (권한 없으면 차단)
+- [x] 권한 없는 리소스 숨김 처리
+  - PROPFIND에서 LIST 권한 없는 자식 리소스 필터링
+  - 모든 핸들러에 권한 체크 통합
+
+### 생성된 파일
+```
+src/main/kotlin/
+├── db/
+│   ├── DatabaseFactory.kt              # SQLite 초기화
+│   ├── tables/
+│   │   ├── Users.kt                    # 사용자 테이블
+│   │   └── PermissionRules.kt          # 권한 규칙 테이블
+│   └── repositories/
+│       ├── UserRepository.kt           # 사용자 조회/인증
+│       └── PermissionRepository.kt     # 권한 규칙 조회
+├── auth/
+│   ├── Permission.kt                   # Permission enum
+│   └── AuthorizationService.kt         # 권한 체크 서비스
+└── plugins/
+    └── Plugins.kt                      # Basic Auth 설정
+```
+
+### 검증
+- ✅ 인증 없이 접근 → 401 Unauthorized
+- ✅ 잘못된 인증 → 401 Unauthorized
+- ✅ 올바른 인증 (admin/admin) → 정상 작동
+- ✅ PROPFIND로 디렉터리 목록 조회 (인증 필요)
+- ✅ PUT로 파일 업로드 (인증 + WRITE 권한 필요)
+- ✅ GET로 파일 다운로드 (인증 + READ 권한 필요)
 
 ---
 
@@ -256,13 +294,18 @@ src/main/kotlin/webdav/handlers/
 
 ## 다음 단계
 
-**우선순위**: 마일스톤 5 (인증 및 권한)
+**우선순위**: 마일스톤 6 (고급 기능) 또는 마일스톤 7 (공유 링크)
 
-1. HTTP Basic Authentication 구현
-2. SQLite 데이터베이스 초기화
-3. 사용자/권한 테이블 생성
-4. Authorization Layer 구현
-5. 권한 기반 접근 제어 테스트
+### 옵션 A: 마일스톤 6
+1. Range GET 구현 (206 Partial Content)
+2. If-Match / If-None-Match 조건부 요청 (이미 부분 구현됨)
+3. LOCK/UNLOCK 최소 지원
+
+### 옵션 B: 마일스톤 7 (더 유용)
+1. 공유 링크 테이블 생성
+2. 공유 링크 API (POST/GET/DELETE /api/shares)
+3. 공유 링크 접근 (GET /s/{token})
+4. 토큰 보안 및 만료 시간 검증
 
 ---
 
