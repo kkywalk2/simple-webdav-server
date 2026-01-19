@@ -6,6 +6,7 @@ import io.ktor.server.auth.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import me.kkywalk2.config.ServerConfig
+import me.kkywalk2.share.ShareLinkHandler
 import me.kkywalk2.webdav.handlers.*
 
 /**
@@ -18,11 +19,30 @@ fun Application.configureRouting(config: ServerConfig) {
     val putHandler = PutHandler(config)
     val deleteHandler = DeleteHandler(config)
     val mkcolHandler = MkcolHandler(config)
+    val shareLinkHandler = ShareLinkHandler(config)
 
     routing {
         // Health check endpoint
         get("/") {
             call.respondText("WebDAV Server is running", ContentType.Text.Plain)
+        }
+
+        // Public share link access (no authentication required)
+        route("/s/{token}") {
+            get {
+                val token = call.parameters["token"] ?: return@get call.respond(
+                    HttpStatusCode.BadRequest
+                )
+                shareLinkHandler.handleAccess(call, token)
+            }
+
+            // Download specific file from shared folder
+            get("/file") {
+                val token = call.parameters["token"] ?: return@get call.respond(
+                    HttpStatusCode.BadRequest
+                )
+                shareLinkHandler.handleFileAccess(call, token)
+            }
         }
 
         // WebDAV endpoints (with authentication)
@@ -92,6 +112,39 @@ fun Application.configureRouting(config: ServerConfig) {
                     if (call.request.local.method.value == "PROPFIND" && call.request.local.uri == "/webdav") {
                         propfindHandler.handle(call, "/")
                     }
+                }
+            }
+
+            // Share link management API (requires authentication)
+            route("/api/shares") {
+                // Create share link
+                post {
+                    shareLinkHandler.handleCreate(call)
+                }
+
+                // List all share links for current user
+                get {
+                    shareLinkHandler.handleList(call)
+                }
+
+                // Get specific share link
+                get("/{id}") {
+                    val id = call.parameters["id"]?.toIntOrNull()
+                    if (id == null) {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@get
+                    }
+                    shareLinkHandler.handleGet(call, id)
+                }
+
+                // Delete share link
+                delete("/{id}") {
+                    val id = call.parameters["id"]?.toIntOrNull()
+                    if (id == null) {
+                        call.respond(HttpStatusCode.BadRequest)
+                        return@delete
+                    }
+                    shareLinkHandler.handleDelete(call, id)
                 }
             }
         }

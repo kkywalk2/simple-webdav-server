@@ -1,6 +1,7 @@
 package me.kkywalk2.db
 
 import me.kkywalk2.db.tables.PermissionRules
+import me.kkywalk2.db.tables.ShareLinks
 import me.kkywalk2.db.tables.Users
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -18,7 +19,7 @@ object DatabaseFactory {
 
         // Create tables
         transaction {
-            SchemaUtils.create(Users, PermissionRules)
+            SchemaUtils.create(Users, PermissionRules, ShareLinks)
 
             // Create default admin user if no users exist
             val userCount = Users.selectAll().count()

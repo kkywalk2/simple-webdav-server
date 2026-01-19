@@ -1,11 +1,11 @@
 # WebDAV Server 구현 진행 상황
 
 **프로젝트**: Kotlin/Ktor 기반 WebDAV 서버
-**마지막 업데이트**: 2026-01-19
+**마지막 업데이트**: 2026-01-20
 
 ---
 
-## 전체 진행률: 5/8 마일스톤 완료 (62.5%)
+## 전체 진행률: 6/8 마일스톤 완료 (75%)
 
 ---
 
@@ -259,14 +259,87 @@ src/main/kotlin/
 
 ---
 
-## ⏳ 마일스톤 7: 공유 링크 기능 - 대기 중
+## ✅ 마일스톤 7: 공유 링크 기능 - 완료
+
+**완료일**: 2026-01-20
 
 **목표**: 로그인 없이 임시 접근 가능한 공유 링크
 
-### 계획된 작업
-- [ ] 공유 링크 모델 (token, expiresAt)
-- [ ] 공유 API (POST/GET/DELETE /api/shares)
-- [ ] 공유 접근 (GET /s/{token})
+### 구현된 기능
+- [x] 공유 링크 모델 (ShareLinks 테이블)
+  - token (32자 랜덤 토큰)
+  - resourcePath, resourceType (FILE/FOLDER)
+  - createdBy, createdAt, expiresAt
+  - password (선택적 비밀번호 보호)
+  - maxAccessCount, accessCount (접근 횟수 제한)
+  - canRead, canWrite (권한)
+- [x] 공유 링크 API (인증 필요)
+  - `POST /api/shares` - 공유 링크 생성
+  - `GET /api/shares` - 내 공유 링크 목록
+  - `GET /api/shares/{id}` - 공유 링크 조회
+  - `DELETE /api/shares/{id}` - 공유 링크 삭제
+- [x] 공유 링크 접근 (인증 불필요)
+  - `GET /s/{token}` - 파일 다운로드 / 폴더 HTML 목록
+  - `GET /s/{token}/file?path=...` - 공유 폴더 내 파일 다운로드
+- [x] 보안 기능
+  - 토큰 만료 시간 검증
+  - 접근 횟수 제한
+  - 비밀번호 보호 (선택)
+  - 경로 탐색 공격 차단
+
+### 생성된 파일
+```
+src/main/kotlin/
+├── db/tables/
+│   └── ShareLinks.kt               # 공유 링크 테이블
+├── db/repositories/
+│   └── ShareLinkRepository.kt      # 공유 링크 CRUD
+└── share/
+    ├── ShareLinkService.kt         # 토큰 생성, 유효성 검증
+    └── ShareLinkHandler.kt         # API 및 접근 핸들러
+```
+
+### API 사용 예시
+
+#### 공유 링크 생성
+```bash
+curl -X POST http://localhost:8080/api/shares \
+  -u admin:admin \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/documents/report.pdf", "expiresInHours": 24}'
+```
+
+#### 응답
+```json
+{
+  "id": 1,
+  "token": "aBcDeFgHiJkLmNoPqRsTuVwXyZ123456",
+  "path": "/documents/report.pdf",
+  "resourceType": "FILE",
+  "url": "http://localhost:8080/s/aBcDeFgHiJkLmNoPqRsTuVwXyZ123456",
+  "createdAt": "2026-01-20T10:30:00",
+  "expiresAt": "2026-01-21T10:30:00",
+  "hasPassword": false,
+  "maxAccessCount": null,
+  "accessCount": 0,
+  "canRead": true,
+  "canWrite": false
+}
+```
+
+#### 공유 링크로 파일 접근 (인증 불필요)
+```bash
+curl http://localhost:8080/s/aBcDeFgHiJkLmNoPqRsTuVwXyZ123456
+```
+
+### 검증
+- ✅ 공유 링크 생성 (POST /api/shares)
+- ✅ 공유 링크 목록 조회 (GET /api/shares)
+- ✅ 공유 링크 삭제 (DELETE /api/shares/{id})
+- ✅ 파일 공유 링크 접근 (GET /s/{token})
+- ✅ 폴더 공유 링크 접근 (HTML 목록)
+- ✅ 만료된 링크 접근 거부
+- ✅ 비밀번호 보호 동작
 
 ---
 
@@ -294,18 +367,17 @@ src/main/kotlin/
 
 ## 다음 단계
 
-**우선순위**: 마일스톤 6 (고급 기능) 또는 마일스톤 7 (공유 링크)
+**우선순위**: 마일스톤 6 (고급 기능) 또는 마일스톤 8 (클라이언트 호환성)
 
-### 옵션 A: 마일스톤 6
+### 옵션 A: 마일스톤 6 (고급 기능)
 1. Range GET 구현 (206 Partial Content)
 2. If-Match / If-None-Match 조건부 요청 (이미 부분 구현됨)
 3. LOCK/UNLOCK 최소 지원
 
-### 옵션 B: 마일스톤 7 (더 유용)
-1. 공유 링크 테이블 생성
-2. 공유 링크 API (POST/GET/DELETE /api/shares)
-3. 공유 링크 접근 (GET /s/{token})
-4. 토큰 보안 및 만료 시간 검증
+### 옵션 B: 마일스톤 8 (클라이언트 테스트)
+1. Raidrive 연결 테스트
+2. macOS Finder 테스트
+3. Cyberduck 테스트
 
 ---
 
