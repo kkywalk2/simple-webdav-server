@@ -5,7 +5,7 @@
 
 ---
 
-## 전체 진행률: 2/8 마일스톤 완료 (25%)
+## 전체 진행률: 3/8 마일스톤 완료 (37.5%)
 
 ---
 
@@ -103,22 +103,57 @@ src/test/kotlin/
 
 ---
 
-## 🔄 마일스톤 3: 기본 WebDAV 메서드 (읽기) - 대기 중
+## ✅ 마일스톤 3: 기본 WebDAV 메서드 (읽기) - 완료
+
+**완료일**: 2026-01-19
 
 **목표**: 탐색 및 다운로드 기능 구현
 
-### 계획된 작업
-- [ ] OPTIONS 핸들러 (`DAV: 1`, `Allow` 헤더)
-- [ ] PROPFIND 핸들러 (Depth 0, 1, infinity 거부)
-- [ ] GET / HEAD 핸들러 (파일 다운로드, Range 지원)
-- [ ] 207 Multi-Status XML 응답
+### 구현된 기능
+- [x] OPTIONS 핸들러 (`DAV: 1`, `Allow` 헤더, `MS-Author-Via: DAV`)
+- [x] PROPFIND 핸들러 (Depth 0, 1, infinity 거부 with 403)
+- [x] GET / HEAD 핸들러 (파일 다운로드, ETag, Last-Modified)
+- [x] 207 Multi-Status XML 응답
+- [x] Content-Type 자동 감지 (txt, html, json, pdf, 이미지 등)
 
-### 예상 파일
+### 생성된 파일
 ```
 src/main/kotlin/webdav/handlers/
-├── OptionsHandler.kt
-├── PropfindHandler.kt
-└── GetHandler.kt
+├── OptionsHandler.kt       # WebDAV 기능 탐지
+├── PropfindHandler.kt      # 디렉터리 목록 조회
+└── GetHandler.kt           # 파일 다운로드 및 메타데이터
+
+src/main/kotlin/routes/
+└── WebDavRoutes.kt         # WebDAV 라우팅 통합
+```
+
+### 검증
+- ✅ `curl -X OPTIONS /webdav/` - DAV, Allow 헤더 반환
+- ✅ `curl -X PROPFIND -H "Depth: 0"` - 단일 리소스 조회
+- ✅ `curl -X PROPFIND -H "Depth: 1"` - 디렉터리 + 자식 조회
+- ✅ `curl -X PROPFIND -H "Depth: infinity"` - 403 거부
+- ✅ `curl http://localhost:8080/webdav/test.txt` - 파일 다운로드
+- ✅ `curl -I /webdav/test.txt` - HEAD 요청 (메타데이터만)
+
+### XML 응답 예시
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/test.txt</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:displayname>test.txt</D:displayname>
+        <D:resourcetype></D:resourcetype>
+        <D:getcontentlength>14</D:getcontentlength>
+        <D:getlastmodified>Mon, 19 Jan 2026 07:23:44 GMT</D:getlastmodified>
+        <D:getetag>"-2329f72f"</D:getetag>
+        <D:getcontenttype>text/plain</D:getcontenttype>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>
 ```
 
 ---
@@ -192,12 +227,12 @@ src/main/kotlin/webdav/handlers/
 
 ## 다음 단계
 
-**우선순위**: 마일스톤 3 (WebDAV 읽기 메서드)
+**우선순위**: 마일스톤 4 (WebDAV 쓰기 메서드)
 
-1. OPTIONS 핸들러 구현
-2. PROPFIND 핸들러 구현 (Depth 0, 1)
-3. GET/HEAD 핸들러 구현
-4. Raidrive 연결 테스트
+1. PUT 핸들러 구현 (파일 업로드)
+2. DELETE 핸들러 구현 (파일/폴더 삭제)
+3. MKCOL 핸들러 구현 (폴더 생성)
+4. 업로드/삭제 테스트
 
 ---
 

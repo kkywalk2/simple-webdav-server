@@ -14,11 +14,11 @@ fun main() {
         Netty,
         port = config.port,
         host = config.host,
-        module = Application::module
+        module = { module(config) }
     ).start(wait = true)
 }
 
-fun Application.module() {
+fun Application.module(config: ServerConfig = ServerConfig()) {
     configurePlugins()
-    configureRouting()
+    configureRouting(config)
 }
