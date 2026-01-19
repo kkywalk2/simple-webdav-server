@@ -5,7 +5,7 @@
 
 ---
 
-## 전체 진행률: 3/8 마일스톤 완료 (37.5%)
+## 전체 진행률: 4/8 마일스톤 완료 (50%)
 
 ---
 
@@ -158,14 +158,43 @@ src/main/kotlin/routes/
 
 ---
 
-## ⏳ 마일스톤 4: 쓰기 WebDAV 메서드 - 대기 중
+## ✅ 마일스톤 4: 쓰기 WebDAV 메서드 - 완료
+
+**완료일**: 2026-01-19
 
 **목표**: 업로드, 삭제, 폴더 생성 구현
 
-### 계획된 작업
-- [ ] PUT 핸들러 (스트리밍 업로드)
-- [ ] DELETE 핸들러 (비어있지 않은 폴더 → 409)
-- [ ] MKCOL 핸들러
+### 구현된 기능
+- [x] PUT 핸들러 (스트리밍 업로드, 조건부 요청 지원)
+  - 201 Created (새 파일)
+  - 204 No Content (기존 파일 덮어쓰기)
+  - If-Match, If-None-Match 지원
+  - 원자적 저장 (임시파일 → atomic move)
+- [x] DELETE 핸들러
+  - 파일 삭제: 204 No Content
+  - 빈 폴더 삭제: 204 No Content
+  - 비어있지 않은 폴더: 409 Conflict
+  - 없는 리소스: 404 Not Found
+- [x] MKCOL 핸들러 (폴더 생성)
+  - 성공: 201 Created
+  - 부모 없음: 409 Conflict
+  - 이미 존재: 405 Method Not Allowed
+
+### 생성된 파일
+```
+src/main/kotlin/webdav/handlers/
+├── PutHandler.kt           # 파일 업로드
+├── DeleteHandler.kt        # 파일/폴더 삭제
+└── MkcolHandler.kt         # 폴더 생성
+```
+
+### 검증
+- ✅ `curl -X PUT --data-binary @file.txt /webdav/file.txt` - 201 Created
+- ✅ `curl -X PUT --data-binary @file.txt /webdav/file.txt` - 204 No Content (덮어쓰기)
+- ✅ `curl -X DELETE /webdav/file.txt` - 204 No Content
+- ✅ `curl -X MKCOL /webdav/newdir` - 201 Created
+- ✅ `curl -X DELETE /webdav/emptydir` - 204 No Content
+- ✅ `curl -X DELETE /webdav/nonemptydir` - 409 Conflict ✓
 
 ---
 
@@ -227,12 +256,13 @@ src/main/kotlin/routes/
 
 ## 다음 단계
 
-**우선순위**: 마일스톤 4 (WebDAV 쓰기 메서드)
+**우선순위**: 마일스톤 5 (인증 및 권한)
 
-1. PUT 핸들러 구현 (파일 업로드)
-2. DELETE 핸들러 구현 (파일/폴더 삭제)
-3. MKCOL 핸들러 구현 (폴더 생성)
-4. 업로드/삭제 테스트
+1. HTTP Basic Authentication 구현
+2. SQLite 데이터베이스 초기화
+3. 사용자/권한 테이블 생성
+4. Authorization Layer 구현
+5. 권한 기반 접근 제어 테스트
 
 ---
 

@@ -5,9 +5,7 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import me.kkywalk2.config.ServerConfig
-import me.kkywalk2.webdav.handlers.GetHandler
-import me.kkywalk2.webdav.handlers.OptionsHandler
-import me.kkywalk2.webdav.handlers.PropfindHandler
+import me.kkywalk2.webdav.handlers.*
 
 /**
  * Configure WebDAV routing
@@ -16,6 +14,9 @@ fun Application.configureRouting(config: ServerConfig) {
     // Initialize handlers
     val propfindHandler = PropfindHandler(config)
     val getHandler = GetHandler(config)
+    val putHandler = PutHandler(config)
+    val deleteHandler = DeleteHandler(config)
+    val mkcolHandler = MkcolHandler(config)
 
     routing {
         // Health check endpoint
@@ -53,6 +54,29 @@ fun Application.configureRouting(config: ServerConfig) {
                     val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
                     val urlPath = "/$path"
                     getHandler.handle(call, urlPath)
+                }
+
+                // PUT - upload file
+                put {
+                    val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
+                    val urlPath = "/$path"
+                    putHandler.handle(call, urlPath)
+                }
+
+                // DELETE - delete file or directory
+                delete {
+                    val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
+                    val urlPath = "/$path"
+                    deleteHandler.handle(call, urlPath)
+                }
+
+                // MKCOL - create directory
+                handle {
+                    if (call.request.local.method.value == "MKCOL") {
+                        val path = call.parameters.getAll("path")?.joinToString("/") ?: ""
+                        val urlPath = "/$path"
+                        mkcolHandler.handle(call, urlPath)
+                    }
                 }
             }
         }
