@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebDAV Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold text-gray-900">WebDAV Admin</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="switchTab('dashboard')" class="tab-btn px-3 py-2 rounded-md text-sm font-medium" data-tab="dashboard">Dashboard</button>
+                        <button onclick="switchTab('users')" class="tab-btn px-3 py-2 rounded-md text-sm font-medium" data-tab="users">Users</button>
+                        <button onclick="switchTab('permissions')" class="tab-btn px-3 py-2 rounded-md text-sm font-medium" data-tab="permissions">Permissions</button>
+                        <button onclick="switchTab('shares')" class="tab-btn px-3 py-2 rounded-md text-sm font-medium" data-tab="shares">Shares</button>
+                        <button onclick="switchTab('files')" class="tab-btn px-3 py-2 rounded-md text-sm font-medium" data-tab="files">Files</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i data-lucide="users" class="h-6 w-6 text-blue-600"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                                        <dd class="text-lg font-semibold text-gray-900" id="stat-users">-</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i data-lucide="shield" class="h-6 w-6 text-green-600"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Permission Rules</dt>
+                                        <dd class="text-lg font-semibold text-gray-900" id="stat-permissions">-</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i data-lucide="link" class="h-6 w-6 text-purple-600"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Share Links</dt>
+                                        <dd class="text-lg font-semibold text-gray-900" id="stat-shares">-</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Users</h2>
+                    <button onclick="showCreateUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Add User
+                    </button>
+                </div>
+                <div class="bg-white shadow overflow-hidden rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Display Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Permissions Tab -->
+            <div id="permissions-tab" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Permissions</h2>
+                    <button onclick="showCreatePermissionModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Add Rule
+                    </button>
+                </div>
+                <div class="bg-white shadow overflow-hidden rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Path</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permissions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="permissions-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Files Tab -->
+            <div id="files-tab" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex items-center space-x-2">
+                        <h2 class="text-2xl font-bold text-gray-900">Files</h2>
+                        <span id="current-path" class="text-gray-500 text-sm">/</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="navigateUp()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">
+                            <i data-lucide="arrow-up" class="h-4 w-4 inline"></i> Up
+                        </button>
+                        <button onclick="showCreateFolderModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            New Folder
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white shadow overflow-hidden rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modified</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="files-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Shares Tab -->
+            <div id="shares-tab" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex items-center space-x-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Share Links</h2>
+                        <span class="text-sm text-gray-500">
+                            <span id="shares-active-count" class="text-green-600 font-medium">0</span> active /
+                            <span id="shares-expired-count" class="text-red-600 font-medium">0</span> expired
+                        </span>
+                    </div>
+                    <button onclick="deleteExpiredShares()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Delete Expired
+                    </button>
+                </div>
+                <div class="bg-white shadow overflow-hidden rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Token</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Path</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shares-table" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- Create User Modal -->
+        <div id="create-user-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Create User</h3>
+                <form id="create-user-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" name="username" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Display Name</label>
+                        <input type="text" name="displayName" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="isAdmin" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Admin privileges</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('create-user-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Cancel</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Create Permission Modal -->
+        <div id="create-permission-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Create Permission Rule</h3>
+                <form id="create-permission-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Username</label>
+                        <select name="username" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" id="permission-user-select">
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Path</label>
+                        <input type="text" name="path" required placeholder="/" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4 grid grid-cols-2 gap-2">
+                        <label class="flex items-center"><input type="checkbox" name="canList" class="rounded border-gray-300 text-blue-600"><span class="ml-2 text-sm text-gray-700">List</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="canRead" class="rounded border-gray-300 text-blue-600"><span class="ml-2 text-sm text-gray-700">Read</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="canWrite" class="rounded border-gray-300 text-blue-600"><span class="ml-2 text-sm text-gray-700">Write</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="canDelete" class="rounded border-gray-300 text-blue-600"><span class="ml-2 text-sm text-gray-700">Delete</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="canMkcol" class="rounded border-gray-300 text-blue-600"><span class="ml-2 text-sm text-gray-700">Create Folder</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="deny" class="rounded border-gray-300 text-red-600"><span class="ml-2 text-sm text-gray-700 text-red-600">Deny</span></label>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('create-permission-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Cancel</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Create Folder Modal -->
+        <div id="create-folder-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Create Folder</h3>
+                <form id="create-folder-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Folder Name</label>
+                        <input type="text" name="folderName" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('create-folder-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Cancel</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Share Detail Modal -->
+        <div id="share-detail-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-lg w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Share Link Details</h3>
+                <div id="share-detail-content" class="space-y-3">
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="hideModal('share-detail-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Close</button>
+                    <button type="button" onclick="deleteCurrentShare()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Share Modal -->
+        <div id="create-share-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Create Share Link</h3>
+                <form id="create-share-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Path</label>
+                        <input type="text" name="path" id="share-path" readonly class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50 text-gray-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Expires In</label>
+                        <select name="expiresInHours" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                            <option value="">Never</option>
+                            <option value="1">1 hour</option>
+                            <option value="24" selected>24 hours</option>
+                            <option value="168">7 days</option>
+                            <option value="720">30 days</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Password (optional)</label>
+                        <input type="text" name="password" placeholder="Leave empty for no password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Max Access Count (optional)</label>
+                        <input type="number" name="maxAccessCount" min="1" placeholder="Unlimited" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="canWrite" class="rounded border-gray-300 text-purple-600 shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                            <span class="ml-2 text-sm text-gray-700">Allow write access</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('create-share-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Cancel</button>
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium">Create Share</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Share Result Modal -->
+        <div id="share-result-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-8 max-w-lg w-full">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Share Link Created</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Share URL</label>
+                    <div class="flex">
+                        <input type="text" id="share-result-url" readonly class="flex-1 border border-gray-300 rounded-l-md shadow-sm py-2 px-3 bg-gray-50 text-sm font-mono">
+                        <button type="button" onclick="copyResultUrl()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-r-md text-sm font-medium">Copy</button>
+                    </div>
+                </div>
+                <div id="share-result-details" class="text-sm text-gray-500 mb-4">
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="hideModal('share-result-modal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPath = '/';
+        let users = [];
+
+        // API helpers
+        async function api(endpoint, options = {}) {
+            const response = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(error.error || 'Request failed');
+            }
+            if (response.status === 204) return null;
+            return response.json();
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-blue-100', 'text-blue-700');
+                el.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+
+            document.getElementById(`${tab}-tab`).classList.remove('hidden');
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('bg-blue-100', 'text-blue-700');
+            document.querySelector(`[data-tab="${tab}"]`).classList.remove('text-gray-500', 'hover:text-gray-700');
+
+            if (tab === 'dashboard') loadDashboard();
+            if (tab === 'users') loadUsers();
+            if (tab === 'permissions') loadPermissions();
+            if (tab === 'shares') loadShares();
+            if (tab === 'files') loadFiles(currentPath);
+        }
+
+        // Modal helpers
+        function showModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function hideModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const usersData = await api('/api/admin/users');
+                document.getElementById('stat-users').textContent = usersData.total;
+
+                const permsData = await api('/api/admin/permissions');
+                document.getElementById('stat-permissions').textContent = permsData.total;
+
+                const sharesData = await api('/api/admin/shares');
+                document.getElementById('stat-shares').textContent = `${sharesData.active} / ${sharesData.total}`;
+            } catch (e) {
+                console.error('Failed to load dashboard:', e);
+            }
+        }
+
+        // Users
+        async function loadUsers() {
+            try {
+                const data = await api('/api/admin/users');
+                users = data.users;
+                const tbody = document.getElementById('users-table');
+                tbody.innerHTML = data.users.map(user => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.username}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.displayName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${user.enabled ? 'Active' : 'Disabled'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.isAdmin ? 'Yes' : 'No'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="deleteUser('${user.username}')" class="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load users:', e);
+            }
+        }
+
+        function showCreateUserModal() {
+            document.getElementById('create-user-form').reset();
+            showModal('create-user-modal');
+        }
+
+        document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            try {
+                await api('/api/admin/users', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: form.username.value,
+                        password: form.password.value,
+                        displayName: form.displayName.value,
+                        isAdmin: form.isAdmin.checked
+                    })
+                });
+                hideModal('create-user-modal');
+                loadUsers();
+            } catch (e) {
+                alert('Failed to create user: ' + e.message);
+            }
+        });
+
+        async function deleteUser(username) {
+            if (!confirm(`Delete user "${username}"?`)) return;
+            try {
+                await api(`/api/admin/users/${username}`, { method: 'DELETE' });
+                loadUsers();
+            } catch (e) {
+                alert('Failed to delete user: ' + e.message);
+            }
+        }
+
+        // Permissions
+        async function loadPermissions() {
+            try {
+                const data = await api('/api/admin/permissions');
+                const tbody = document.getElementById('permissions-table');
+                tbody.innerHTML = data.rules.map(rule => {
+                    const perms = [];
+                    if (rule.canList) perms.push('List');
+                    if (rule.canRead) perms.push('Read');
+                    if (rule.canWrite) perms.push('Write');
+                    if (rule.canDelete) perms.push('Delete');
+                    if (rule.canMkcol) perms.push('Mkcol');
+                    if (rule.deny) perms.push('<span class="text-red-600">DENY</span>');
+                    return `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rule.username}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rule.path}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${perms.join(', ') || '-'}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="deletePermission(${rule.id})" class="text-red-600 hover:text-red-900">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load permissions:', e);
+            }
+        }
+
+        async function showCreatePermissionModal() {
+            document.getElementById('create-permission-form').reset();
+            const select = document.getElementById('permission-user-select');
+            if (users.length === 0) {
+                const data = await api('/api/admin/users');
+                users = data.users;
+            }
+            select.innerHTML = users.map(u => `<option value="${u.username}">${u.username}</option>`).join('');
+            showModal('create-permission-modal');
+        }
+
+        document.getElementById('create-permission-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            try {
+                await api('/api/admin/permissions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: form.username.value,
+                        path: form.path.value,
+                        canList: form.canList.checked,
+                        canRead: form.canRead.checked,
+                        canWrite: form.canWrite.checked,
+                        canDelete: form.canDelete.checked,
+                        canMkcol: form.canMkcol.checked,
+                        deny: form.deny.checked
+                    })
+                });
+                hideModal('create-permission-modal');
+                loadPermissions();
+            } catch (e) {
+                alert('Failed to create permission: ' + e.message);
+            }
+        });
+
+        async function deletePermission(id) {
+            if (!confirm('Delete this permission rule?')) return;
+            try {
+                await api(`/api/admin/permissions/${id}`, { method: 'DELETE' });
+                loadPermissions();
+            } catch (e) {
+                alert('Failed to delete permission: ' + e.message);
+            }
+        }
+
+        // Files
+        async function loadFiles(path) {
+            currentPath = path;
+            document.getElementById('current-path').textContent = path;
+            try {
+                const data = await api(`/api/admin/files?path=${encodeURIComponent(path)}`);
+                const tbody = document.getElementById('files-table');
+                tbody.innerHTML = data.entries.map(entry => `
+                    <tr class="${entry.type === 'FOLDER' ? 'cursor-pointer hover:bg-gray-50' : ''}" ${entry.type === 'FOLDER' ? `onclick="loadFiles('${entry.path}')"` : ''}>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <i data-lucide="${entry.type === 'FOLDER' ? 'folder' : 'file'}" class="h-4 w-4 inline mr-2 ${entry.type === 'FOLDER' ? 'text-yellow-500' : 'text-gray-400'}"></i>
+                            ${entry.name}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${entry.type === 'FILE' ? entry.sizeFormatted : '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${entry.lastModified ? new Date(entry.lastModified).toLocaleString() : '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="event.stopPropagation(); showCreateShareModal('${entry.path}')" class="text-purple-600 hover:text-purple-900 mr-3">Share</button>
+                            <button onclick="event.stopPropagation(); deleteFile('${entry.path}')" class="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+                lucide.createIcons();
+            } catch (e) {
+                console.error('Failed to load files:', e);
+            }
+        }
+
+        function navigateUp() {
+            if (currentPath === '/' || currentPath === '') return;
+            const parent = currentPath.substring(0, currentPath.lastIndexOf('/'));
+            loadFiles(parent || '/');
+        }
+
+        function showCreateFolderModal() {
+            document.getElementById('create-folder-form').reset();
+            showModal('create-folder-modal');
+        }
+
+        document.getElementById('create-folder-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const folderName = form.folderName.value;
+            const path = currentPath === '/' ? `/${folderName}` : `${currentPath}/${folderName}`;
+            try {
+                await api('/api/admin/files/mkdir', {
+                    method: 'POST',
+                    body: JSON.stringify({ path })
+                });
+                hideModal('create-folder-modal');
+                loadFiles(currentPath);
+            } catch (e) {
+                alert('Failed to create folder: ' + e.message);
+            }
+        });
+
+        async function deleteFile(path) {
+            if (!confirm(`Delete "${path}"?`)) return;
+            try {
+                await api(`/api/admin/files?path=${encodeURIComponent(path)}&recursive=true`, { method: 'DELETE' });
+                loadFiles(currentPath);
+            } catch (e) {
+                alert('Failed to delete: ' + e.message);
+            }
+        }
+
+        // Shares
+        let currentShareId = null;
+
+        async function loadShares() {
+            try {
+                const data = await api('/api/admin/shares');
+                document.getElementById('shares-active-count').textContent = data.active;
+                document.getElementById('shares-expired-count').textContent = data.expired;
+
+                const tbody = document.getElementById('shares-table');
+                if (data.shares.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">No share links found</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = data.shares.map(share => {
+                    const isExpired = share.expiresAt && new Date(share.expiresAt) < new Date();
+                    const expiresDisplay = share.expiresAt
+                        ? `<span class="${isExpired ? 'text-red-600' : 'text-gray-500'}">${new Date(share.expiresAt).toLocaleString()}</span>`
+                        : '<span class="text-gray-400">Never</span>';
+
+                    const accessDisplay = share.maxAccessCount
+                        ? `${share.accessCount} / ${share.maxAccessCount}`
+                        : `${share.accessCount}`;
+
+                    const permissions = [];
+                    if (share.canRead) permissions.push('R');
+                    if (share.canWrite) permissions.push('W');
+                    if (share.hasPassword) permissions.push('<i data-lucide="lock" class="h-3 w-3 inline"></i>');
+
+                    return `
+                        <tr class="${isExpired ? 'bg-red-50' : ''}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                                <button onclick="showShareDetail(${share.id})" class="text-blue-600 hover:text-blue-800">${share.token.substring(0, 12)}...</button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <i data-lucide="${share.resourceType === 'FOLDER' ? 'folder' : 'file'}" class="h-4 w-4 inline mr-1"></i>
+                                ${share.path}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${share.createdBy}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">${expiresDisplay}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${accessDisplay} ${permissions.join(' ')}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="copyShareUrl('${share.url}')" class="text-blue-600 hover:text-blue-900 mr-3">Copy</button>
+                                <button onclick="deleteShare(${share.id})" class="text-red-600 hover:text-red-900">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            } catch (e) {
+                console.error('Failed to load shares:', e);
+            }
+        }
+
+        async function showShareDetail(id) {
+            try {
+                const share = await api(`/api/admin/shares/${id}`);
+                currentShareId = id;
+
+                const isExpired = share.expiresAt && new Date(share.expiresAt) < new Date();
+                const content = document.getElementById('share-detail-content');
+                content.innerHTML = `
+                    <div class="grid grid-cols-3 gap-2 text-sm">
+                        <span class="text-gray-500">Token:</span>
+                        <span class="col-span-2 font-mono break-all">${share.token}</span>
+
+                        <span class="text-gray-500">Path:</span>
+                        <span class="col-span-2">${share.path}</span>
+
+                        <span class="text-gray-500">Type:</span>
+                        <span class="col-span-2">${share.resourceType}</span>
+
+                        <span class="text-gray-500">Created By:</span>
+                        <span class="col-span-2">${share.createdBy}</span>
+
+                        <span class="text-gray-500">Created At:</span>
+                        <span class="col-span-2">${new Date(share.createdAt).toLocaleString()}</span>
+
+                        <span class="text-gray-500">Expires At:</span>
+                        <span class="col-span-2 ${isExpired ? 'text-red-600 font-medium' : ''}">${share.expiresAt ? new Date(share.expiresAt).toLocaleString() : 'Never'} ${isExpired ? '(Expired)' : ''}</span>
+
+                        <span class="text-gray-500">Password:</span>
+                        <span class="col-span-2">${share.hasPassword ? 'Yes' : 'No'}</span>
+
+                        <span class="text-gray-500">Access Count:</span>
+                        <span class="col-span-2">${share.accessCount}${share.maxAccessCount ? ' / ' + share.maxAccessCount : ''}</span>
+
+                        <span class="text-gray-500">Permissions:</span>
+                        <span class="col-span-2">${share.canRead ? 'Read' : ''} ${share.canWrite ? 'Write' : ''}</span>
+
+                        <span class="text-gray-500">URL:</span>
+                        <span class="col-span-2">
+                            <a href="${share.url}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all">${share.url}</a>
+                        </span>
+                    </div>
+                `;
+                showModal('share-detail-modal');
+            } catch (e) {
+                alert('Failed to load share details: ' + e.message);
+            }
+        }
+
+        function copyShareUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            }).catch(() => {
+                prompt('Copy the URL:', url);
+            });
+        }
+
+        async function deleteShare(id) {
+            if (!confirm('Delete this share link?')) return;
+            try {
+                await api(`/api/admin/shares/${id}`, { method: 'DELETE' });
+                loadShares();
+            } catch (e) {
+                alert('Failed to delete share: ' + e.message);
+            }
+        }
+
+        async function deleteCurrentShare() {
+            if (currentShareId && confirm('Delete this share link?')) {
+                try {
+                    await api(`/api/admin/shares/${currentShareId}`, { method: 'DELETE' });
+                    hideModal('share-detail-modal');
+                    loadShares();
+                } catch (e) {
+                    alert('Failed to delete share: ' + e.message);
+                }
+            }
+        }
+
+        async function deleteExpiredShares() {
+            if (!confirm('Delete all expired share links?')) return;
+            try {
+                const result = await api('/api/admin/shares/expired', { method: 'DELETE' });
+                alert(result.message);
+                loadShares();
+            } catch (e) {
+                alert('Failed to delete expired shares: ' + e.message);
+            }
+        }
+
+        // Create Share from Files tab
+        function showCreateShareModal(path) {
+            document.getElementById('create-share-form').reset();
+            document.getElementById('share-path').value = path;
+            showModal('create-share-modal');
+        }
+
+        document.getElementById('create-share-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const requestBody = {
+                path: form.path.value,
+                canWrite: form.canWrite.checked
+            };
+
+            const expiresInHours = form.expiresInHours.value;
+            if (expiresInHours) {
+                requestBody.expiresInHours = parseInt(expiresInHours);
+            }
+
+            const password = form.password.value.trim();
+            if (password) {
+                requestBody.password = password;
+            }
+
+            const maxAccessCount = form.maxAccessCount.value;
+            if (maxAccessCount) {
+                requestBody.maxAccessCount = parseInt(maxAccessCount);
+            }
+
+            try {
+                const result = await api('/api/shares', {
+                    method: 'POST',
+                    body: JSON.stringify(requestBody)
+                });
+                hideModal('create-share-modal');
+                showShareResult(result);
+            } catch (e) {
+                alert('Failed to create share link: ' + e.message);
+            }
+        });
+
+        function showShareResult(share) {
+            document.getElementById('share-result-url').value = share.url;
+            const details = [];
+            if (share.expiresAt) {
+                details.push(`Expires: ${new Date(share.expiresAt).toLocaleString()}`);
+            } else {
+                details.push('Expires: Never');
+            }
+            if (share.hasPassword) {
+                details.push('Password protected');
+            }
+            if (share.maxAccessCount) {
+                details.push(`Max access: ${share.maxAccessCount}`);
+            }
+            if (share.canWrite) {
+                details.push('Write access enabled');
+            }
+            document.getElementById('share-result-details').innerHTML = details.join(' | ');
+            showModal('share-result-modal');
+        }
+
+        function copyResultUrl() {
+            const url = document.getElementById('share-result-url').value;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            }).catch(() => {
+                document.getElementById('share-result-url').select();
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            switchTab('dashboard');
+        });
+    </script>
+</body>
+</html>

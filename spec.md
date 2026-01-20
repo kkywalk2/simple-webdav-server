@@ -424,6 +424,430 @@ yaml
 
 ---
 
+# 15. 관리자 대시보드
+
+## 15.1 개요
+
+### 15.1.1 목적
+
+관리자 대시보드는 WebDAV 서버의 핵심 관리 기능을 제공한다.
+
+- 사용자 및 권한 관리
+- 파일 브라우저를 통한 서버 파일 탐색
+- 공유 링크 관리
+- 시스템 통계 및 모니터링
+
+### 15.1.2 아키텍처 결정
+
+| 항목 | 결정 | 근거 |
+|------|------|------|
+| 구현 방식 | API + 웹 UI (SPA) | 유연성과 사용 편의성 동시 제공 |
+| 프론트엔드 | 정적 HTML/JS | 별도 빌드 없이 Ktor에서 직접 서빙 |
+| 인증 | HTTP Basic Auth | 기존 WebDAV 인증과 일관성 유지 |
+| 권한 | 관리자 전용 | Users 테이블의 `isAdmin` 필드로 확인 |
+
+---
+
+## 15.2 데이터베이스 스키마 변경
+
+### 15.2.1 Users 테이블 확장
+
+| 컬럼명 | 타입 | 설명 |
+|--------|------|------|
+| is_admin | BOOLEAN | 관리자 여부 (기본값: false) |
+| created_at | DATETIME | 계정 생성 시간 |
+| last_login_at | DATETIME | 마지막 로그인 시간 |
+
+### 15.2.2 AccessLogs 테이블 (신규)
+
+| 컬럼명 | 타입 | 설명 |
+|--------|------|------|
+| id | INTEGER | 자동 증가 기본키 |
+| timestamp | DATETIME | 접근 시간 |
+| username | VARCHAR(50) | 사용자명 (nullable) |
+| method | VARCHAR(20) | HTTP 메서드 |
+| path | VARCHAR(500) | 요청 경로 |
+| status_code | INTEGER | HTTP 상태 코드 |
+| ip_address | VARCHAR(45) | IP 주소 |
+| user_agent | VARCHAR(500) | User-Agent (nullable) |
+
+---
+
+## 15.3 사용자 관리 API
+
+### 15.3.1 엔드포인트
+
+| Method | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | /api/admin/users | 사용자 목록 조회 | admin |
+| GET | /api/admin/users/{username} | 사용자 상세 조회 | admin |
+| POST | /api/admin/users | 사용자 생성 | admin |
+| PUT | /api/admin/users/{username} | 사용자 수정 | admin |
+| DELETE | /api/admin/users/{username} | 사용자 삭제 | admin |
+| PUT | /api/admin/users/{username}/password | 비밀번호 변경 | admin |
+
+### 15.3.2 사용자 목록 조회
+
+요청
+
+GET /api/admin/users
+Authorization: Basic {credentials}
+
+응답 (200 OK)
+
+```json
+{
+  "users": [
+    {
+      "username": "admin",
+      "displayName": "Administrator",
+      "enabled": true,
+      "isAdmin": true,
+      "createdAt": "2026-01-15T10:30:00",
+      "lastLoginAt": "2026-01-20T09:15:00",
+      "permissionCount": 3
+    }
+  ],
+  "total": 1
+}
+```
+
+### 15.3.3 사용자 생성
+
+요청
+
+POST /api/admin/users
+Content-Type: application/json
+
+```json
+{
+  "username": "newuser",
+  "password": "securePassword123",
+  "displayName": "신규 사용자",
+  "isAdmin": false
+}
+```
+
+응답 (201 Created)
+
+```json
+{
+  "username": "newuser",
+  "displayName": "신규 사용자",
+  "enabled": true,
+  "isAdmin": false,
+  "createdAt": "2026-01-20T10:00:00"
+}
+```
+
+---
+
+## 15.4 권한 규칙 관리 API
+
+### 15.4.1 엔드포인트
+
+| Method | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | /api/admin/permissions | 전체 권한 규칙 조회 | admin |
+| GET | /api/admin/permissions/user/{username} | 사용자별 권한 조회 | admin |
+| POST | /api/admin/permissions | 권한 규칙 생성 | admin |
+| PUT | /api/admin/permissions/{id} | 권한 규칙 수정 | admin |
+| DELETE | /api/admin/permissions/{id} | 권한 규칙 삭제 | admin |
+
+### 15.4.2 권한 규칙 생성
+
+요청
+
+POST /api/admin/permissions
+Content-Type: application/json
+
+```json
+{
+  "username": "user1",
+  "path": "/documents",
+  "canList": true,
+  "canRead": true,
+  "canWrite": true,
+  "canDelete": false,
+  "canMkcol": true,
+  "deny": false
+}
+```
+
+응답 (201 Created)
+
+```json
+{
+  "id": 4,
+  "username": "user1",
+  "path": "/documents",
+  "canList": true,
+  "canRead": true,
+  "canWrite": true,
+  "canDelete": false,
+  "canMkcol": true,
+  "deny": false
+}
+```
+
+---
+
+## 15.5 파일 브라우저 API
+
+### 15.5.1 엔드포인트
+
+| Method | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | /api/admin/files | 디렉토리 목록 조회 | admin |
+| GET | /api/admin/files/info | 파일/폴더 정보 조회 | admin |
+| POST | /api/admin/files/mkdir | 폴더 생성 | admin |
+| DELETE | /api/admin/files | 파일/폴더 삭제 | admin |
+| POST | /api/admin/files/move | 파일/폴더 이동 | admin |
+| POST | /api/admin/files/copy | 파일/폴더 복사 | admin |
+
+### 15.5.2 디렉토리 목록 조회
+
+요청
+
+GET /api/admin/files?path=/documents
+Authorization: Basic {credentials}
+
+쿼리 파라미터
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|----------|------|--------|------|
+| path | string | / | 조회할 경로 |
+| sort | string | name | 정렬 기준 (name, size, modified) |
+| order | string | asc | 정렬 순서 (asc, desc) |
+
+응답 (200 OK)
+
+```json
+{
+  "path": "/documents",
+  "parentPath": "/",
+  "entries": [
+    {
+      "name": "reports",
+      "path": "/documents/reports",
+      "type": "FOLDER",
+      "size": 0,
+      "lastModified": "2026-01-19T15:30:00",
+      "childCount": 5
+    },
+    {
+      "name": "readme.txt",
+      "path": "/documents/readme.txt",
+      "type": "FILE",
+      "size": 1024,
+      "lastModified": "2026-01-18T10:00:00",
+      "mimeType": "text/plain"
+    }
+  ],
+  "totalCount": 2,
+  "folderCount": 1,
+  "fileCount": 1
+}
+```
+
+---
+
+## 15.6 공유 링크 관리 API (확장)
+
+### 15.6.1 관리자용 엔드포인트
+
+| Method | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | /api/admin/shares | 모든 공유 링크 조회 | admin |
+| GET | /api/admin/shares/stats | 공유 링크 통계 | admin |
+| DELETE | /api/admin/shares/{id} | 모든 공유 링크 삭제 가능 | admin |
+| DELETE | /api/admin/shares/expired | 만료된 링크 일괄 삭제 | admin |
+
+### 15.6.2 공유 링크 통계
+
+요청
+
+GET /api/admin/shares/stats
+
+응답 (200 OK)
+
+```json
+{
+  "totalShares": 50,
+  "activeShares": 42,
+  "expiredShares": 8,
+  "fileShares": 35,
+  "folderShares": 15,
+  "totalAccessCount": 1250,
+  "passwordProtected": 20
+}
+```
+
+---
+
+## 15.7 통계 및 모니터링 API
+
+### 15.7.1 엔드포인트
+
+| Method | 경로 | 설명 | 권한 |
+|--------|------|------|------|
+| GET | /api/admin/stats/overview | 시스템 개요 통계 | admin |
+| GET | /api/admin/stats/storage | 스토리지 통계 | admin |
+| GET | /api/admin/logs | 접근 로그 조회 | admin |
+
+### 15.7.2 시스템 개요 통계
+
+요청
+
+GET /api/admin/stats/overview
+
+응답 (200 OK)
+
+```json
+{
+  "users": {
+    "total": 10,
+    "active": 8,
+    "admin": 2
+  },
+  "shares": {
+    "total": 50,
+    "active": 42
+  },
+  "storage": {
+    "totalSize": 10737418240,
+    "totalSizeFormatted": "10.0 GB",
+    "fileCount": 1500,
+    "folderCount": 200
+  }
+}
+```
+
+---
+
+## 15.8 보안 고려사항
+
+### 15.8.1 인증 및 권한
+
+| 항목 | 구현 방법 |
+|------|----------|
+| 관리자 인증 | 기존 HTTP Basic Auth 활용 |
+| 관리자 확인 | Users 테이블의 isAdmin 필드 확인 |
+| 세션 관리 | Stateless (매 요청 인증) |
+
+### 15.8.2 입력 검증
+
+- 경로 탈출 방지 (`..` 포함 여부 확인)
+- 유효한 경로 형식 검증 (`/`로 시작)
+- 사용자명 형식 검증 (영문/숫자/언더스코어, 3-50자)
+
+### 15.8.3 감사 로깅
+
+모든 관리 작업은 로그에 기록한다.
+
+| 기록 대상 | 예시 |
+|----------|------|
+| 사용자 생성/수정/삭제 | "Created user: newuser" |
+| 권한 규칙 변경 | "Modified permission rule #5" |
+| 공유 링크 삭제 | "Deleted share link #12" |
+| 파일/폴더 삭제 | "Deleted file: /documents/secret.txt" |
+
+---
+
+## 15.9 웹 UI 설계
+
+### 15.9.1 라우팅 구조
+
+| URL | 설명 |
+|-----|------|
+| /admin | 대시보드 메인 (리다이렉트) |
+| /admin/dashboard | 시스템 개요 |
+| /admin/users | 사용자 관리 |
+| /admin/permissions | 권한 관리 |
+| /admin/files | 파일 브라우저 |
+| /admin/shares | 공유 링크 관리 |
+| /admin/logs | 접근 로그 |
+
+### 15.9.2 기술 스택
+
+| 항목 | 선택 | 근거 |
+|------|------|------|
+| 프레임워크 | Vanilla JS 또는 Alpine.js | 빌드 없이 직접 서빙 가능 |
+| CSS | Tailwind CSS (CDN) | 유틸리티 기반, 빠른 개발 |
+| 아이콘 | Lucide Icons (CDN) | 가벼움, MIT 라이선스 |
+
+---
+
+## 15.10 구현 우선순위
+
+### Phase 1 (MVP)
+
+- Users 테이블 isAdmin 컬럼 추가
+- 사용자 관리 API (CRUD)
+- 권한 규칙 관리 API (CRUD)
+- 파일 브라우저 API (조회, 삭제)
+- 기본 웹 UI
+
+### Phase 2
+
+- 관리자용 공유 링크 관리 API
+- 파일 이동/복사 API
+- 시스템 통계 API
+- 개선된 웹 UI
+
+### Phase 3
+
+- 접근 로그 테이블 및 API
+- 감사 로깅
+- 비밀번호 해시 (BCrypt)
+
+---
+
+## 15.11 에러 응답 표준
+
+| 에러 코드 | HTTP 상태 | 설명 |
+|----------|----------|------|
+| UNAUTHORIZED | 401 | 인증 필요 |
+| FORBIDDEN | 403 | 관리자 권한 필요 |
+| NOT_FOUND | 404 | 리소스를 찾을 수 없음 |
+| VALIDATION_ERROR | 400 | 입력 검증 실패 |
+| CONFLICT | 409 | 중복 또는 충돌 |
+
+---
+
+## 15.12 테스트 체크리스트
+
+### 사용자 관리
+
+- [ ] 사용자 목록 조회
+- [ ] 사용자 생성 (유효/무효 입력)
+- [ ] 사용자 수정
+- [ ] 사용자 삭제
+- [ ] 중복 사용자명 처리
+
+### 권한 관리
+
+- [ ] 권한 규칙 목록 조회
+- [ ] 권한 규칙 생성
+- [ ] 권한 규칙 수정
+- [ ] 권한 규칙 삭제
+
+### 파일 브라우저
+
+- [ ] 루트 디렉토리 조회
+- [ ] 하위 디렉토리 탐색
+- [ ] 폴더 생성
+- [ ] 파일 삭제
+- [ ] 경로 탈출 방지
+
+### 보안
+
+- [ ] 비인증 접근 차단
+- [ ] 비관리자 접근 차단
+- [ ] 경로 탈출 시도 차단
+
+---
+
 ## 마무리
 
 본 문서는 MVP 구현 기준이며, 향후 기능 확장을 고려한 기반 문서로 활용한다.

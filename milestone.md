@@ -5,7 +5,7 @@
 
 ---
 
-## 전체 진행률: 6/8 마일스톤 완료 (75%)
+## 전체 진행률: 7/9 마일스톤 완료 (78%)
 
 ---
 
@@ -355,6 +355,124 @@ curl http://localhost:8080/s/aBcDeFgHiJkLmNoPqRsTuVwXyZ123456
 
 ---
 
+## ✅ 마일스톤 9: 관리자 대시보드 Phase 1 - 완료
+
+**완료일**: 2026-01-20
+
+**목표**: 파일 브라우징, 권한 관리, 공유 링크 관리를 위한 웹 기반 관리자 대시보드
+
+### Phase 1 (MVP) - 완료 ✅
+
+#### 데이터베이스 변경
+- [x] Users 테이블 isAdmin, createdAt, lastLoginAt 컬럼 추가
+
+#### 사용자 관리 API
+- [x] GET /api/admin/users - 사용자 목록
+- [x] POST /api/admin/users - 사용자 생성
+- [x] PUT /api/admin/users/{username} - 사용자 수정
+- [x] DELETE /api/admin/users/{username} - 사용자 삭제
+- [x] PUT /api/admin/users/{username}/password - 비밀번호 변경
+
+#### 권한 관리 API
+- [x] GET /api/admin/permissions - 권한 목록
+- [x] POST /api/admin/permissions - 권한 생성
+- [x] PUT /api/admin/permissions/{id} - 권한 수정
+- [x] DELETE /api/admin/permissions/{id} - 권한 삭제
+- [x] GET /api/admin/permissions/user/{username} - 사용자별 권한
+
+#### 파일 브라우저 API
+- [x] GET /api/admin/files - 디렉토리 목록
+- [x] GET /api/admin/files/info - 파일/폴더 정보
+- [x] POST /api/admin/files/mkdir - 폴더 생성
+- [x] DELETE /api/admin/files - 파일/폴더 삭제
+
+#### 웹 UI
+- [x] 기본 대시보드 페이지 (Vanilla JS + Tailwind CSS)
+- [x] 사용자 관리 화면
+- [x] 권한 관리 화면
+- [x] 파일 브라우저 화면
+
+### 생성된 파일
+```
+src/main/kotlin/
+├── db/tables/
+│   └── Users.kt                  # isAdmin, createdAt, lastLoginAt 추가
+├── db/repositories/
+│   ├── UserRepository.kt         # 사용자 CRUD, 인증, 관리자 확인
+│   └── PermissionRepository.kt   # 권한 CRUD
+├── admin/
+│   ├── AdminAuthorization.kt     # 관리자 권한 체크 플러그인
+│   ├── UserAdminHandler.kt       # 사용자 관리 핸들러
+│   ├── PermissionAdminHandler.kt # 권한 관리 핸들러
+│   └── FileAdminHandler.kt       # 파일 브라우저 핸들러
+└── routes/
+    └── AdminRoutes.kt            # 관리자 라우트
+
+src/main/resources/admin/
+└── index.html                    # 단일 페이지 대시보드 (탭 기반 UI)
+```
+
+### 검증
+- ✅ `./gradlew build` 성공
+- ✅ 서버 실행 후 http://localhost:8080/admin/ 접속
+- ✅ admin/admin 자격증명으로 로그인
+- ✅ 사용자 관리 API (목록/생성/수정/삭제)
+- ✅ 권한 관리 API (목록/생성/수정/삭제)
+- ✅ 파일 브라우저 API (목록/폴더 생성/삭제)
+
+### Phase 2
+
+#### 공유 링크 관리 API (확장)
+- [ ] GET /api/admin/shares - 모든 공유 링크 조회
+- [ ] GET /api/admin/shares/stats - 공유 링크 통계
+- [ ] DELETE /api/admin/shares/expired - 만료 링크 일괄 삭제
+
+#### 파일 작업 확장
+- [ ] POST /api/admin/files/move - 파일 이동
+- [ ] POST /api/admin/files/copy - 파일 복사
+
+#### 통계 API
+- [ ] GET /api/admin/stats/overview - 시스템 개요
+- [ ] GET /api/admin/stats/storage - 스토리지 통계
+
+### Phase 3
+
+#### 접근 로그
+- [ ] AccessLogs 테이블 생성
+- [ ] GET /api/admin/logs - 접근 로그 조회
+
+#### 보안 강화
+- [ ] 감사 로깅 (관리 작업 기록)
+- [ ] 비밀번호 해시 (BCrypt)
+
+### 생성 예정 파일
+```
+src/main/kotlin/
+├── db/tables/
+│   └── AccessLogs.kt              # 접근 로그 테이블
+├── db/repositories/
+│   └── AccessLogRepository.kt     # 접근 로그 CRUD
+├── admin/
+│   ├── AdminHandler.kt            # 관리자 API 핸들러
+│   ├── UserAdminHandler.kt        # 사용자 관리 핸들러
+│   ├── PermissionAdminHandler.kt  # 권한 관리 핸들러
+│   ├── FileAdminHandler.kt        # 파일 브라우저 핸들러
+│   └── StatsHandler.kt            # 통계 핸들러
+└── routes/
+    └── AdminRoutes.kt             # 관리자 라우트
+
+src/main/resources/admin/
+├── index.html                     # 대시보드 메인
+├── users.html                     # 사용자 관리
+├── permissions.html               # 권한 관리
+├── files.html                     # 파일 브라우저
+├── shares.html                    # 공유 링크 관리
+└── js/
+    └── admin.js                   # 공통 JavaScript
+```
+
+---
+
 ## 의사결정 사항
 
 | 항목 | 결정 사항 |
@@ -367,14 +485,19 @@ curl http://localhost:8080/s/aBcDeFgHiJkLmNoPqRsTuVwXyZ123456
 
 ## 다음 단계
 
-**우선순위**: 마일스톤 6 (고급 기능) 또는 마일스톤 8 (클라이언트 호환성)
+**우선순위**: 마일스톤 9 Phase 2 또는 마일스톤 6
 
-### 옵션 A: 마일스톤 6 (고급 기능)
+### 옵션 A: 마일스톤 9 Phase 2 (관리자 대시보드 확장)
+1. 공유 링크 관리 API (모든 공유 링크 조회, 통계, 일괄 삭제)
+2. 파일 작업 확장 (이동, 복사)
+3. 통계 API (시스템 개요, 스토리지 통계)
+
+### 옵션 B: 마일스톤 6 (고급 기능)
 1. Range GET 구현 (206 Partial Content)
-2. If-Match / If-None-Match 조건부 요청 (이미 부분 구현됨)
+2. If-Match / If-None-Match 조건부 요청
 3. LOCK/UNLOCK 최소 지원
 
-### 옵션 B: 마일스톤 8 (클라이언트 테스트)
+### 옵션 C: 마일스톤 8 (클라이언트 테스트)
 1. Raidrive 연결 테스트
 2. macOS Finder 테스트
 3. Cyberduck 테스트

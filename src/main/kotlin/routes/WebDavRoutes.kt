@@ -27,6 +27,9 @@ fun Application.configureRouting(config: ServerConfig) {
             call.respondText("WebDAV Server is running", ContentType.Text.Plain)
         }
 
+        // Admin routes
+        configureAdminRoutes(config)
+
         // Public share link access (no authentication required)
         route("/s/{token}") {
             get {

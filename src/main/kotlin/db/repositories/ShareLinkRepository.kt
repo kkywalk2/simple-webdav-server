@@ -135,6 +135,46 @@ object ShareLinkRepository {
         }
     }
 
+    /**
+     * Find all share links (for admin)
+     */
+    fun findAll(): List<ShareLink> = transaction {
+        ShareLinks.selectAll()
+            .orderBy(ShareLinks.createdAt, SortOrder.DESC)
+            .map { toShareLink(it) }
+    }
+
+    /**
+     * Count total share links
+     */
+    fun count(): Long = transaction {
+        ShareLinks.selectAll().count()
+    }
+
+    /**
+     * Count active (non-expired) share links
+     */
+    fun countActive(): Long = transaction {
+        val now = LocalDateTime.now()
+        ShareLinks.selectAll()
+            .where {
+                (ShareLinks.expiresAt.isNull()) or (ShareLinks.expiresAt greaterEq now)
+            }
+            .count()
+    }
+
+    /**
+     * Count expired share links
+     */
+    fun countExpired(): Long = transaction {
+        val now = LocalDateTime.now()
+        ShareLinks.selectAll()
+            .where {
+                (ShareLinks.expiresAt.isNotNull()) and (ShareLinks.expiresAt less now)
+            }
+            .count()
+    }
+
     private fun toShareLink(row: ResultRow): ShareLink = ShareLink(
         id = row[ShareLinks.id],
         token = row[ShareLinks.token],

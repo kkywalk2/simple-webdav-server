@@ -28,6 +28,8 @@ object DatabaseFactory {
                     it[username] = "admin"
                     it[password] = "admin" // In production, this should be hashed
                     it[displayName] = "Administrator"
+                    it[enabled] = true
+                    it[isAdmin] = true
                 }
 
                 // Grant all permissions to admin for root path
