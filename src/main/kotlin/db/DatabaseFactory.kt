@@ -12,7 +12,7 @@ import java.io.File
  */
 object DatabaseFactory {
 
-    fun init(dbPath: String = "webdav.db") {
+    fun init(dbPath: String = System.getenv("WEBDAV_DB_PATH") ?: "webdav.db") {
         // Connect to SQLite database
         val dbFile = File(dbPath)
         Database.connect("jdbc:sqlite:${dbFile.absolutePath}", "org.sqlite.JDBC")

@@ -7,12 +7,13 @@ import java.nio.file.Paths
  * Server configuration
  */
 data class ServerConfig(
-    val host: String = "0.0.0.0",
-    val port: Int = 8080,
-    val serverRoot: Path = Paths.get(System.getProperty("user.home"), "webdav-root")
+    val host: String = System.getenv("WEBDAV_HOST") ?: "0.0.0.0",
+    val port: Int = System.getenv("WEBDAV_PORT")?.toIntOrNull() ?: 8080,
+    val serverRoot: Path = Paths.get(
+        System.getenv("WEBDAV_ROOT") ?: "${System.getProperty("user.home")}/webdav-root"
+    )
 ) {
     init {
-        // Ensure server root directory exists
         serverRoot.toFile().mkdirs()
     }
 }
