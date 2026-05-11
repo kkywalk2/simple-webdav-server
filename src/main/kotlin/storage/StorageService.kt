@@ -38,9 +38,19 @@ interface StorageService {
     fun readFile(path: Path): ByteArray
 
     /**
+     * Read a byte range from a file
+     */
+    fun readFileRange(path: Path, offset: Long, length: Long): ByteArray
+
+    /**
      * Write file content (atomic operation)
      */
     fun writeFile(path: Path, content: ByteArray)
+
+    /**
+     * Write file content from an InputStream (streaming, atomic operation)
+     */
+    fun writeFileStreaming(path: Path, inputStream: java.io.InputStream)
 
     /**
      * Delete a file

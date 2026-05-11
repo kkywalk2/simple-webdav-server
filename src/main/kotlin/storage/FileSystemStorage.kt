@@ -63,8 +63,19 @@ class FileSystemStorage : StorageService {
         return path.readBytes()
     }
 
+    override fun readFileRange(path: Path, offset: Long, length: Long): ByteArray {
+        if (!isFile(path)) {
+            throw NoSuchFileException(path.toString())
+        }
+        java.io.RandomAccessFile(path.toFile(), "r").use { raf ->
+            raf.seek(offset)
+            val buffer = ByteArray(length.toInt())
+            raf.readFully(buffer)
+            return buffer
+        }
+    }
+
     override fun writeFile(path: Path, content: ByteArray) {
-        // Atomic write: write to temp file, then move
         val parent = path.parent
         if (parent != null && !exists(parent)) {
             throw NoSuchFileException(parent.toString(), null, "Parent directory does not exist")
@@ -75,12 +86,23 @@ class FileSystemStorage : StorageService {
             tempFile.writeBytes(content)
             Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         } catch (e: Exception) {
-            // Clean up temp file if something went wrong
-            try {
-                Files.deleteIfExists(tempFile)
-            } catch (cleanupException: Exception) {
-                // Ignore cleanup errors
-            }
+            try { Files.deleteIfExists(tempFile) } catch (_: Exception) {}
+            throw e
+        }
+    }
+
+    override fun writeFileStreaming(path: Path, inputStream: java.io.InputStream) {
+        val parent = path.parent
+        if (parent != null && !exists(parent)) {
+            throw NoSuchFileException(parent.toString(), null, "Parent directory does not exist")
+        }
+
+        val tempFile = Files.createTempFile(parent, ".webdav-upload-", ".tmp")
+        try {
+            Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING)
+            Files.move(tempFile, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (e: Exception) {
+            try { Files.deleteIfExists(tempFile) } catch (_: Exception) {}
             throw e
         }
     }

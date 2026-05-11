@@ -12,10 +12,6 @@ import me.kkywalk2.storage.FileSystemStorage
 import me.kkywalk2.storage.StorageService
 import java.nio.file.NoSuchFileException
 
-/**
- * GET/HEAD handler for WebDAV
- * Downloads files and returns metadata
- */
 class GetHandler(
     private val config: ServerConfig,
     private val storage: StorageService = FileSystemStorage()
@@ -23,61 +19,72 @@ class GetHandler(
     private val pathResolver = PathResolver(config.serverRoot)
 
     suspend fun handle(call: ApplicationCall, urlPath: String) {
-        // Get authenticated user
         val principal = call.principal<UserIdPrincipal>()
         if (principal == null) {
             call.respond(HttpStatusCode.Unauthorized)
             return
         }
-        val username = principal.name
 
-        // Check READ permission
-        if (!AuthorizationService.hasPermission(username, urlPath, Permission.READ)) {
+        if (!AuthorizationService.hasPermission(principal.name, urlPath, Permission.READ)) {
             call.respond(HttpStatusCode.Forbidden, "No READ permission")
             return
         }
 
         try {
-            // Resolve path
             val fsPath = pathResolver.resolve(urlPath)
 
-            // Check if resource exists
             if (!storage.exists(fsPath)) {
                 call.respond(HttpStatusCode.NotFound)
                 return
             }
 
-            // If it's a directory, return 403
             if (storage.isDirectory(fsPath)) {
                 call.respond(HttpStatusCode.Forbidden, "Cannot GET a directory")
                 return
             }
 
-            // Get metadata
-            val metadata = storage.getMetadata(fsPath)
-            if (metadata == null) {
+            val metadata = storage.getMetadata(fsPath) ?: run {
                 call.respond(HttpStatusCode.NotFound)
                 return
             }
 
-            // Set headers
-            call.response.headers.append("ETag", metadata.generateETag())
-            call.response.headers.append("Last-Modified",
+            val contentType = guessContentType(fsPath.toString())
+            val isHead = call.request.local.method == HttpMethod.Head
+
+            call.response.headers.append(HttpHeaders.ETag, metadata.generateETag())
+            call.response.headers.append(HttpHeaders.LastModified,
                 java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
                     .format(metadata.lastModified.atZone(java.time.ZoneOffset.UTC)))
-            call.response.headers.append("Content-Length", metadata.size.toString())
+            call.response.headers.append(HttpHeaders.ContentType, contentType)
+            call.response.headers.append(HttpHeaders.AcceptRanges, "bytes")
 
-            // Guess content type based on file extension
-            val contentType = guessContentType(fsPath.toString())
-            call.response.headers.append("Content-Type", contentType)
+            val rangeHeader = call.request.headers[HttpHeaders.Range]
+            if (rangeHeader != null) {
+                val range = parseRange(rangeHeader, metadata.size)
+                if (range == null || range.start >= metadata.size) {
+                    call.response.headers.append(HttpHeaders.ContentRange, "bytes */${metadata.size}")
+                    call.respond(HttpStatusCode.RequestedRangeNotSatisfiable)
+                    return
+                }
+                val length = range.end - range.start + 1
+                call.response.headers.append(HttpHeaders.ContentRange,
+                    "bytes ${range.start}-${range.end}/${metadata.size}")
+                call.response.headers.append(HttpHeaders.ContentLength, length.toString())
 
-            // For HEAD requests, don't send body
-            if (call.request.local.method == HttpMethod.Head) {
-                call.respond(HttpStatusCode.OK)
+                if (isHead) {
+                    call.respond(HttpStatusCode.PartialContent)
+                    return
+                }
+                val content = storage.readFileRange(fsPath, range.start, length)
+                call.respondBytes(content, ContentType.parse(contentType), HttpStatusCode.PartialContent)
                 return
             }
 
-            // Read and send file
+            call.response.headers.append(HttpHeaders.ContentLength, metadata.size.toString())
+            if (isHead) {
+                call.respond(HttpStatusCode.OK)
+                return
+            }
             val content = storage.readFile(fsPath)
             call.respondBytes(content, ContentType.parse(contentType))
 
@@ -87,6 +94,34 @@ class GetHandler(
             call.respond(HttpStatusCode.NotFound)
         } catch (e: Exception) {
             call.respond(HttpStatusCode.InternalServerError, e.message ?: "Internal error")
+        }
+    }
+
+    private data class RangeRequest(val start: Long, val end: Long)
+
+    private fun parseRange(header: String, fileSize: Long): RangeRequest? {
+        if (!header.startsWith("bytes=")) return null
+        val spec = header.removePrefix("bytes=")
+        return when {
+            spec.startsWith("-") -> {
+                // suffix: bytes=-N  →  last N bytes
+                val n = spec.substring(1).toLongOrNull() ?: return null
+                RangeRequest(maxOf(0L, fileSize - n), fileSize - 1)
+            }
+            spec.endsWith("-") -> {
+                // open-ended: bytes=N-
+                val start = spec.dropLast(1).toLongOrNull() ?: return null
+                RangeRequest(start, fileSize - 1)
+            }
+            else -> {
+                // bytes=N-M
+                val parts = spec.split("-")
+                if (parts.size != 2) return null
+                val start = parts[0].toLongOrNull() ?: return null
+                val end = parts[1].toLongOrNull() ?: return null
+                if (end < start) return null
+                RangeRequest(start, minOf(end, fileSize - 1))
+            }
         }
     }
 
