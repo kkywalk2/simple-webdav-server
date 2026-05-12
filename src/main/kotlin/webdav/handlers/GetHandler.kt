@@ -4,6 +4,8 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.response.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import me.kkywalk2.auth.AuthorizationService
 import me.kkywalk2.auth.Permission
 import me.kkywalk2.config.ServerConfig
@@ -75,8 +77,12 @@ class GetHandler(
                     call.respond(HttpStatusCode.PartialContent)
                     return
                 }
-                val content = storage.readFileRange(fsPath, range.start, length)
-                call.respondBytes(content, ContentType.parse(contentType), HttpStatusCode.PartialContent)
+                call.respondOutputStream(ContentType.parse(contentType), HttpStatusCode.PartialContent) {
+                    val out = this
+                    withContext(Dispatchers.IO) {
+                        storage.openFileRange(fsPath, range.start, length).use { stream -> stream.copyTo(out) }
+                    }
+                }
                 return
             }
 
@@ -85,8 +91,12 @@ class GetHandler(
                 call.respond(HttpStatusCode.OK)
                 return
             }
-            val content = storage.readFile(fsPath)
-            call.respondBytes(content, ContentType.parse(contentType))
+            call.respondOutputStream(ContentType.parse(contentType)) {
+                val out = this
+                withContext(Dispatchers.IO) {
+                    storage.openFile(fsPath).use { stream -> stream.copyTo(out) }
+                }
+            }
 
         } catch (e: SecurityException) {
             call.respond(HttpStatusCode.Forbidden, e.message ?: "Access denied")

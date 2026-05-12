@@ -1,6 +1,9 @@
 package me.kkywalk2.storage
 
 import java.io.IOException
+import java.io.InputStream
+import java.nio.channels.Channels
+import java.nio.channels.FileChannel
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
@@ -72,6 +75,34 @@ class FileSystemStorage : StorageService {
             val buffer = ByteArray(length.toInt())
             raf.readFully(buffer)
             return buffer
+        }
+    }
+
+    override fun openFile(path: Path): InputStream {
+        if (!isFile(path)) throw NoSuchFileException(path.toString())
+        return Files.newInputStream(path)
+    }
+
+    override fun openFileRange(path: Path, offset: Long, length: Long): InputStream {
+        if (!isFile(path)) throw NoSuchFileException(path.toString())
+        val channel = FileChannel.open(path, StandardOpenOption.READ)
+        channel.position(offset)
+        val inner = Channels.newInputStream(channel)
+        return object : InputStream() {
+            private var remaining = length
+            override fun read(): Int {
+                if (remaining <= 0) return -1
+                val b = inner.read()
+                if (b >= 0) remaining--
+                return b
+            }
+            override fun read(b: ByteArray, off: Int, len: Int): Int {
+                if (remaining <= 0) return -1
+                val n = inner.read(b, off, minOf(len.toLong(), remaining).toInt())
+                if (n > 0) remaining -= n
+                return n
+            }
+            override fun close() = channel.close()
         }
     }
 

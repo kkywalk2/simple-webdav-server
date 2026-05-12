@@ -43,6 +43,16 @@ interface StorageService {
     fun readFileRange(path: Path, offset: Long, length: Long): ByteArray
 
     /**
+     * Open a file as a streaming InputStream (caller must close)
+     */
+    fun openFile(path: Path): java.io.InputStream
+
+    /**
+     * Open a byte range of a file as a streaming InputStream (caller must close)
+     */
+    fun openFileRange(path: Path, offset: Long, length: Long): java.io.InputStream
+
+    /**
      * Write file content (atomic operation)
      */
     fun writeFile(path: Path, content: ByteArray)
