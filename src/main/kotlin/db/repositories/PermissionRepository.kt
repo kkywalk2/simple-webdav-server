@@ -126,11 +126,15 @@ object PermissionRepository {
 
     /**
      * Check if a permission rule exists for user and path
+     *
+     * Case-insensitive (see [normalizePath]) so an admin can't create two rules that look
+     * different (e.g. "/private" and "/Private") but would actually govern the same
+     * resource once matched by [findMostSpecificRule].
      */
     fun existsByUserAndPath(username: String, path: String): Boolean = transaction {
-        PermissionRules.selectAll().where {
-            (PermissionRules.username eq username) and (PermissionRules.path eq path)
-        }.count() > 0
+        val normalized = normalizePath(path)
+        PermissionRules.selectAll().where { PermissionRules.username eq username }
+            .any { normalizePath(it[PermissionRules.path]).equals(normalized, ignoreCase = true) }
     }
 
     /**
@@ -153,19 +157,34 @@ object PermissionRepository {
      */
     fun findMostSpecificRule(username: String, requestPath: String): PermissionRule? {
         val rules = getPermissions(username)
+        val normalized = normalizePath(requestPath)
 
-        // Normalize path
-        val normalized = requestPath.trim().removeSuffix("/").ifEmpty { "/" }
-
-        // Find matching rules (path must be a prefix of requestPath)
+        // Find matching rules (path must be a prefix of requestPath).
+        // Matched case-insensitively: the underlying storage root may sit on a
+        // case-insensitive/case-preserving filesystem (NTFS via ntfs-3g even when the
+        // host OS is Linux, macOS APFS by default, etc.), where "/private/x" and
+        // "/Private/x" resolve to the exact same file. If this comparison were
+        // case-sensitive, a client could dodge a more specific `deny` rule just by
+        // changing the request URL's case, since only a broader/less specific rule
+        // (or the default-allow-adjacent "/" rule) would then match. Comparing
+        // case-insensitively means authorization can never be looser than what the
+        // real filesystem considers to be the same resource.
         val matchingRules = rules.filter { rule ->
-            val rulePath = rule.path.trim().removeSuffix("/").ifEmpty { "/" }
-            normalized.startsWith(rulePath) || rulePath == "/"
+            val rulePath = normalizePath(rule.path)
+            normalized.startsWith(rulePath, ignoreCase = true) || rulePath == "/"
         }
 
         // Sort by path length (most specific first)
         return matchingRules.maxByOrNull { it.path.length }
     }
+
+    /**
+     * Normalize a permission path pattern / request path for comparison.
+     * Shared by [findMostSpecificRule] and [existsByUserAndPath] so both use the same
+     * (case-insensitive) notion of "same path" - see [findMostSpecificRule] for why.
+     */
+    private fun normalizePath(path: String): String =
+        path.trim().removeSuffix("/").ifEmpty { "/" }
 
     private fun toPermissionRule(row: ResultRow): PermissionRule = PermissionRule(
         id = row[PermissionRules.id],
